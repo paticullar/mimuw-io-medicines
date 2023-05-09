@@ -34,18 +34,18 @@ def process_group(df: pd.DataFrame) -> pd.DataFrame:
         ret = df.copy()
         ret['amount'] = extracted.apply(lambda x: float(x[0].replace(',', '.')))
         ret['unit'] = extracted.apply(lambda x: x[1])
-        ret['price_per_unit'] = ret['price'] / ret['amount']
+        ret['price_per_unit'] = round(ret['price'] / ret['amount'], 4)
     elif (df['contents'].reset_index(drop=True) == df['contents'].reset_index(drop=True)[0]).all():
         ret = df.copy()
         ret['amount'] = 1
         ret['unit'] = ret['contents']
-        ret['price_per_unit'] = ret['price']
+        ret['price_per_unit'] = round(ret['price'], 4)
     elif df['contents'].apply(has_fiolka_contents).all():
         extracted = df['contents'].apply(get_fiolka_amount_and_unit)
         ret = df.copy()
         ret['amount'] = extracted.apply(lambda x: x[0])
         ret['unit'] = extracted.apply(lambda x: x[1])
-        ret['price_per_unit'] = ret['price'] / ret['amount']
+        ret['price_per_unit'] = round(ret['price'] / ret['amount'], 4)
     else:
         logging.debug('Dropping\n' + df['contents'].to_string())
         global dropped
