@@ -1,3 +1,5 @@
+from typing import Optional
+
 import uvicorn
 from fastapi import FastAPI
 
@@ -17,7 +19,7 @@ async def get_medicines(company: str):
 
 
 @app.get('/group')
-async def get_group(substance: str, form: str, dose: str):
+async def get_group(substance: str, form: str, dose: Optional[str] = None):
     return read_group(substance, form, dose)
 
 
