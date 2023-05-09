@@ -1,9 +1,11 @@
 import logging
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Callable
 
 import pandas as pd
 import os
+
+from sqlalchemy import create_engine
 
 
 dropped = 0
@@ -63,7 +65,7 @@ def process_file(path: str, mysterious_column_name: str) -> pd.DataFrame:
     global dropped
     dropped = 0
 
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, dtype={'Numer GTIN lub inny kod jednoznacznie identyfikujący produkt': str})
 
     df = df[['Substancja czynna', mysterious_column_name, 'Zawartość opakowania',
              'Numer GTIN lub inny kod jednoznacznie identyfikujący produkt', 'Cena hurtowa brutto']]
@@ -97,6 +99,32 @@ def process_file(path: str, mysterious_column_name: str) -> pd.DataFrame:
     return data
 
 
+def read_companies_map(path: str) -> Dict[str, str]:
+    map: Dict[str, str] = {}
+
+    with open(path) as f:
+        for line in f:
+            split = line.strip().split('#')
+            map[split[0]] = split[1]
+
+    return map
+
+
+def get_company(map: Dict[str, str]) -> Callable[[str], str]:
+    def ret(s: str) -> str:
+        if s in map.keys():
+            return map[s]
+        if str(int(s)) in map.keys():
+            return map[str(int(s))]
+        return 'Inna firma'
+    return ret
+
+
+def save_to_db(df: pd.DataFrame):
+    conn = create_engine('postgresql+psycopg2://user:password@localhost:5432/medicines')
+    df.to_sql('medicine', conn, if_exists='replace')
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     data_path = os.path.dirname(os.path.abspath(__file__)) + '/data/'
@@ -108,4 +136,11 @@ if __name__ == '__main__':
     c = process_file(data_path + 'C.csv', 'Nazwa  postać i dawka leku')
 
     data = pd.concat([a1, a2, a3, b, c])
+
+    companies_map = read_companies_map(data_path + 'companies.txt')
+    data['company'] = data['gtin'].apply(get_company(companies_map))
+
+    data.drop(columns=['gtin'], inplace=True)
+
+    save_to_db(data)
 
