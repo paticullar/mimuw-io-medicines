@@ -14,7 +14,7 @@ all_input = 0
 def process_group(df: pd.DataFrame) -> pd.DataFrame:
     pattern = re.compile(
         '^\d+ (?:(?:pasków)|(?:amp.-strz.\.?)|(?:szt\.?\.?)|(?:kaps\.?)|(?:ml\.?)|(?:fiol\.?(?: proszku)?)|(?:daw\.?)|(?:g\.?)|(?:sasz\.?)|(?:tabl\.?))(?: ?\(.*\))?$')
-    chunked_re_str = '^(\d+) (?:fiol\.|butelka|butelki|but\.|amp\.|poj\.|amp\.-strz\.|szt\.) ?(?:po|a)? (\d+,?\d*) (ml|mg|g|daw\.)$'
+    chunked_re_str = '^(\d+) (?:fiol\.|wkł\.|butelka|butelki|but\.|amp\.|poj\.|amp\.-strz\.|szt\.) ?(?:po|a)? (\d+,?\d*) ?(ml|mg|g|daw\.)$'
     chunked_pattern = re.compile(chunked_re_str)
     ret = pd.DataFrame()
 
