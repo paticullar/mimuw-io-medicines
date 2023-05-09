@@ -14,8 +14,8 @@ all_input = 0
 def process_group(df: pd.DataFrame) -> pd.DataFrame:
     pattern = re.compile(
         '^\d+ (?:(?:pasków)|(?:amp.-strz.\.?)|(?:szt\.?\.?)|(?:kaps\.?)|(?:ml\.?)|(?:fiol\.?(?: proszku)?)|(?:daw\.?)|(?:g\.?)|(?:sasz\.?)|(?:tabl\.?))(?: ?\(.*\))?$')
-    fiolka_re_str = '^(\d+) (?:fiol\.|butelka|butelki|but\.|amp\.|poj\.|amp\.-strz\.|szt\.) ?(?:po|a)? (\d+,?\d*) (ml|mg|g|daw\.)$'
-    fiolka_pattern = re.compile(fiolka_re_str)
+    chunked_re_str = '^(\d+) (?:fiol\.|butelka|butelki|but\.|amp\.|poj\.|amp\.-strz\.|szt\.) ?(?:po|a)? (\d+,?\d*) (ml|mg|g|daw\.)$'
+    chunked_pattern = re.compile(chunked_re_str)
     ret = pd.DataFrame()
 
     def has_standard_contents(s: str) -> bool:
@@ -24,11 +24,11 @@ def process_group(df: pd.DataFrame) -> pd.DataFrame:
     def get_amount_and_unit(s: str):
         return re.findall('(\d+) ([^\(]*)', s)[0]
 
-    def has_fiolka_contents(s: str) -> bool:
-        return True if fiolka_pattern.match(s) else False
+    def has_chunked_contents(s: str) -> bool:
+        return True if chunked_pattern.match(s) else False
 
-    def get_fiolka_amount_and_unit(s: str) -> Tuple[float, str]:
-        found = re.findall(fiolka_re_str, s)[0]
+    def get_chunked_amount_and_unit(s: str) -> Tuple[float, str]:
+        found = re.findall(chunked_re_str, s)[0]
         return float(found[0]) * float(found[1].replace(',', '.')), found[2]
 
     if df['contents'].apply(has_standard_contents).all():
@@ -42,8 +42,8 @@ def process_group(df: pd.DataFrame) -> pd.DataFrame:
         ret['amount'] = 1
         ret['unit'] = ret['contents']
         ret['price_per_unit'] = round(ret['price'], 4)
-    elif df['contents'].apply(has_fiolka_contents).all():
-        extracted = df['contents'].apply(get_fiolka_amount_and_unit)
+    elif df['contents'].apply(has_chunked_contents).all():
+        extracted = df['contents'].apply(get_chunked_amount_and_unit)
         ret = df.copy()
         ret['amount'] = extracted.apply(lambda x: x[0])
         ret['unit'] = extracted.apply(lambda x: x[1])
