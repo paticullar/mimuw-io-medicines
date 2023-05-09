@@ -7,13 +7,15 @@ import os
 
 from sqlalchemy import create_engine
 
-
 dropped = 0
+all_input = 0
 
 
 def process_group(df: pd.DataFrame) -> pd.DataFrame:
-    pattern = re.compile('^\d+ (?:(?:pasków)|(?:amp.-strz.\.?)|(?:szt\.?\.?)|(?:kaps\.?)|(?:ml\.?)|(?:fiol\.?(?: proszku)?)|(?:daw\.?)|(?:g\.?)|(?:sasz\.?)|(?:tabl\.?))(?: ?\(.*\))?$')
-    fiolka_pattern = re.compile('^(\d+) fiol\. ?(?:po|a)? (\d+) (ml|mg)$')
+    pattern = re.compile(
+        '^\d+ (?:(?:pasków)|(?:amp.-strz.\.?)|(?:szt\.?\.?)|(?:kaps\.?)|(?:ml\.?)|(?:fiol\.?(?: proszku)?)|(?:daw\.?)|(?:g\.?)|(?:sasz\.?)|(?:tabl\.?))(?: ?\(.*\))?$')
+    fiolka_re_str = '^(\d+) (?:fiol\.|butelka|butelki|but\.|amp\.|poj\.|amp\.-strz\.|szt\.) ?(?:po|a)? (\d+,?\d*) (ml|mg|g|daw\.)$'
+    fiolka_pattern = re.compile(fiolka_re_str)
     ret = pd.DataFrame()
 
     def has_standard_contents(s: str) -> bool:
@@ -26,8 +28,8 @@ def process_group(df: pd.DataFrame) -> pd.DataFrame:
         return True if fiolka_pattern.match(s) else False
 
     def get_fiolka_amount_and_unit(s: str) -> Tuple[float, str]:
-        found = re.findall('^(\d+) fiol\. ?(?:po|a)? (\d+) (ml|mg)$', s)[0]
-        return float(found[0]) * float(found[1]), found[2]
+        found = re.findall(fiolka_re_str, s)[0]
+        return float(found[0]) * float(found[1].replace(',', '.')), found[2]
 
     if df['contents'].apply(has_standard_contents).all():
         extracted = df['contents'].apply(get_amount_and_unit)
@@ -67,6 +69,9 @@ def process_file(path: str, mysterious_column_name: str) -> pd.DataFrame:
 
     df = pd.read_csv(path, dtype={'Numer GTIN lub inny kod jednoznacznie identyfikujący produkt': str})
 
+    global all_input
+    all_input += len(df.index)
+
     df = df[['Substancja czynna', mysterious_column_name, 'Zawartość opakowania',
              'Numer GTIN lub inny kod jednoznacznie identyfikujący produkt', 'Cena hurtowa brutto']]
 
@@ -93,7 +98,8 @@ def process_file(path: str, mysterious_column_name: str) -> pd.DataFrame:
     to_append = [process_group(df.iloc[ids]) for _, ids in groups.items()]
     data = pd.concat(to_append)
 
-    logging.info(f'Dropped {dropped} due to strange contents, coverage {len(data.index) * 100 / len(df.index)}%')
+    logging.info(
+        f'Dropped {dropped} due to strange contents, coverage {round(len(data.index) * 100 / len(df.index), 2)}%')
     logging.info(f'Processed!')
 
     return data
@@ -117,12 +123,15 @@ def get_company(map: Dict[str, str]) -> Callable[[str], str]:
         if str(int(s)) in map.keys():
             return map[str(int(s))]
         return 'Inna firma'
+
     return ret
 
 
 def save_to_db(df: pd.DataFrame):
+    logging.info('Saving to database...')
     conn = create_engine('postgresql+psycopg2://user:password@localhost:5432/medicines')
     df.to_sql('medicine', conn, if_exists='replace')
+    logging.info('Successfully saved to database')
 
 
 if __name__ == '__main__':
@@ -142,5 +151,6 @@ if __name__ == '__main__':
 
     data.drop(columns=['gtin'], inplace=True)
 
-    save_to_db(data)
+    logging.info(f'All data parsed, overall coverage {round(len(data.index) * 100. / all_input, 2)}%')
 
+    save_to_db(data)
