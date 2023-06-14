@@ -133,7 +133,7 @@ def get_company(map: Dict[str, str]) -> Callable[[str], str]:
 def save_to_db(df: pd.DataFrame):
     logging.info('Saving to database...')
     conn = create_engine('postgresql+psycopg2://user:password@localhost:5432/medicines')
-    df.to_sql('medicine', conn, if_exists='replace')
+    df.to_sql('medicine_v2', conn, if_exists='replace')
     logging.info('Successfully saved to database')
 
 

@@ -10,7 +10,7 @@ Base = declarative_base()
 
 
 class Medicine(Base):
-    __tablename__ = 'medicine'
+    __tablename__ = 'medicine_v2'
 
     index = Column(Integer, primary_key=True)
     substance = Column(String)
