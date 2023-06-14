@@ -1,9 +1,10 @@
-from sqlalchemy import create_engine, Column, Integer, String, Numeric
+from typing import Dict, List
+
+from sqlalchemy import create_engine, Column, Integer, String, Numeric, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import select
 
 import pandas as pd
-
 
 Base = declarative_base()
 
@@ -22,6 +23,8 @@ class Medicine(Base):
     unit = Column(String)
     price_per_unit = Column(Numeric)
     company = Column(String)
+    gtin = Column(String)
+    date = Column(Date)
 
 
 def get_df_from_query(query) -> pd.DataFrame:
@@ -33,7 +36,7 @@ def get_df_from_query(query) -> pd.DataFrame:
 
 
 def read_companies():
-    query = select(Medicine.company).distinct()
+    query = select(Medicine.company).distinct().order_by(Medicine.company)
     result = {'companies': get_df_from_query(query)['company'].tolist()}
     return result
 
@@ -48,6 +51,7 @@ def read_medicines_for_company(company: str):
         )
         .where(Medicine.company == company)
         .distinct()
+        .order_by(Medicine.name)
     )
     result = get_df_from_query(query).to_dict('records')
     return result
@@ -65,7 +69,9 @@ def read_group(substance: str, form: str, dose: str):
             Medicine.price,
             Medicine.unit,
             Medicine.amount,
-            Medicine.price_per_unit
+            Medicine.price_per_unit,
+            Medicine.gtin,
+            Medicine.date
         )
         .where(
             Medicine.substance == substance,
@@ -73,5 +79,17 @@ def read_group(substance: str, form: str, dose: str):
             Medicine.dose == dose,
         )
     )
-    result = get_df_from_query(query).to_dict('records')
+    query_result = get_df_from_query(query).to_dict('records')
+    map: Dict[str, List[Dict]] = {}
+    for entry in query_result:
+        gtin = entry['gtin']
+        if gtin not in map.keys():
+            map[gtin] = []
+        map[gtin].append(entry)
+
+    result = [sorted(medicines, key=lambda x: x['date']) for medicines in map.values()]
+    result.sort(key=lambda x: x[-1]['price'])
+    for l in result:
+        for m in l:
+            m['date'] = m['date'].isoformat()
     return result

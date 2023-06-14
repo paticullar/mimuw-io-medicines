@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 from typing import List, Dict, Tuple, Callable
@@ -55,7 +56,7 @@ def process_group(df: pd.DataFrame) -> pd.DataFrame:
     return ret
 
 
-def process_file(path: str, mysterious_column_name: str) -> pd.DataFrame:
+def process_file(path: str, mysterious_column_name: str, date: datetime.date) -> pd.DataFrame:
     def get_name_form_and_dose(s: str) -> Tuple[str]:
         result = re.findall('(.*?), (.*), (.*)', s)
         if result:
@@ -86,6 +87,8 @@ def process_file(path: str, mysterious_column_name: str) -> pd.DataFrame:
                        'Cena hurtowa brutto': 'price'}, inplace=True)
 
     df['price'] = df['price'].apply(lambda x: float(x.replace(',', '.')))
+
+    df['date'] = date
 
     groups: Dict[Tuple[str, str, str], List[int]] = {}
 
@@ -134,23 +137,34 @@ def save_to_db(df: pd.DataFrame):
     logging.info('Successfully saved to database')
 
 
+def process_file_group(path: str) -> pd.DataFrame:
+    date = datetime.datetime.strptime(path[-8:], '%d%m%Y').date()
+
+    a1 = process_file(path + '/A1.csv', 'Nazwa  postać i dawka', date)
+    a2 = process_file(path + '/A2.csv', 'Nazwa  postać i dawka', date)
+    a3 = process_file(path + '/A3.csv', 'Nazwa  postać i dawka', date)
+    b = process_file(path + '/B.csv', 'Nazwa  postać i dawka leku', date)
+    c = process_file(path + '/C.csv', 'Nazwa  postać i dawka leku', date)
+
+    processed = pd.concat([a1, a2, a3, b, c])
+    return processed
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     data_path = os.path.dirname(os.path.abspath(__file__)) + '/data/'
 
-    a1 = process_file(data_path + 'A1.csv', 'Nazwa  postać i dawka')
-    a2 = process_file(data_path + 'A2.csv', 'Nazwa  postać i dawka')
-    a3 = process_file(data_path + 'A3.csv', 'Nazwa  postać i dawka')
-    b = process_file(data_path + 'B.csv', 'Nazwa  postać i dawka leku')
-    c = process_file(data_path + 'C.csv', 'Nazwa  postać i dawka leku')
+    all_data_dict: Dict[str, pd.DataFrame] = {}
 
-    data = pd.concat([a1, a2, a3, b, c])
+    for name in os.listdir(data_path):
+        if os.path.isdir(os.path.join(data_path, name)):
+            all_data_dict[name] = process_file_group(os.path.join(data_path, name))
+
+    all_data = pd.concat([data for data in all_data_dict.values()])
 
     companies_map = read_companies_map(data_path + 'companies.txt')
-    data['company'] = data['gtin'].apply(get_company(companies_map))
+    all_data['company'] = all_data['gtin'].apply(get_company(companies_map))
 
-    data.drop(columns=['gtin'], inplace=True)
+    logging.info(f'All data parsed, overall coverage {round(len(all_data.index) * 100. / all_input, 2)}%')
 
-    logging.info(f'All data parsed, overall coverage {round(len(data.index) * 100. / all_input, 2)}%')
-
-    save_to_db(data)
+    save_to_db(all_data)
