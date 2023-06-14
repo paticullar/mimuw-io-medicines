@@ -88,8 +88,10 @@ def read_group(substance: str, form: str, dose: str):
         map[gtin].append(entry)
 
     result = [sorted(medicines, key=lambda x: x['date']) for medicines in map.values()]
-    result.sort(key=lambda x: x[-1]['price'])
+    result.sort(key=lambda x: x[-1]['price_per_unit'])
     for l in result:
         for m in l:
             m['date'] = m['date'].isoformat()
     return result
+
+
